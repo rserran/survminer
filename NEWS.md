@@ -1,3 +1,15 @@
+# Survminer 0.4.9.999
+
+## New features
+
+## Major changes
+
+## Minor changes
+
+## Bug fixes
+
+- Fixing issue in the scaling factor for sd in `ggcoxzph()` (#534 and #535)
+   
 # Survminer 0.4.9
 
 
