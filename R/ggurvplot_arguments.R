@@ -59,8 +59,11 @@
 #'@param pval.size numeric value specifying the p-value text size. Default is 5.
 #'@param pval.coord numeric vector, of length 2, specifying the x and y
 #'  coordinates of the p-value. Default values are NULL.
-#'@param title,xlab,ylab main title and axis labels
-#'@param xlim,ylim x and y axis limits e.g. xlim = c(0, 1000), ylim = c(0, 1).
+#'@param title main title
+#'@param xlab x axis label
+#'@param ylab y axis label
+#'@param xlim x axis limits e.g. \code{xlim = c(0, 1000)}.
+#'@param ylim y axis limits e.g. \code{xlim = c(0, 1)}.
 #'@param axes.offset logical value. Default is TRUE. If FALSE, set the plot axes
 #'  to start at the origin.
 #'@param legend character specifying legend position. Allowed values are one of
@@ -146,11 +149,10 @@
 #'@param log.rank.weights The name for the type of weights to be used in
 #'  computing the p-value for log-rank test. By default \code{survdiff} is used
 #'  to calculate regular log-rank test (with weights == 1). A user can specify
-#'  \code{"1", "n", "sqrtN", "S1", "S2", "FH"} to use weights specified in
-#'  \link[survMisc]{comp}, so that weight correspond to the test as : 1 -
-#'  log-rank, n - Gehan-Breslow (generalized Wilcoxon), sqrtN - Tarone-Ware, S1
-#'  - Peto-Peto's modified survival estimate, S2 - modified Peto-Peto (by
-#'  Andersen), FH - Fleming-Harrington(p=1, q=1).
+#'  \code{"1", "n", "sqrtN", "S1", "S2", "FH"} so that weights correspond to
+#'  the test as: 1 - log-rank, n - Gehan-Breslow (generalized Wilcoxon),
+#'  sqrtN - Tarone-Ware, S1 - Peto-Peto's modified survival estimate,
+#'  S2 - modified Peto-Peto (by Andersen), FH - Fleming-Harrington(p=1, q=1).
 #'@param pval.method whether to add a text with the test name used for
 #'  calculating the pvalue, that corresponds to survival curves' comparison -
 #'  used only when \code{pval=TRUE}

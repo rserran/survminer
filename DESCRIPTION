@@ -1,11 +1,11 @@
 Package: survminer
 Type: Package
 Title: Drawing Survival Curves using 'ggplot2'
-Version: 0.4.9.999
-Date: 2021-03-09
+Version: 0.5.2.999
+Date: 2026-02-25
 Authors@R: c(
     person("Alboukadel", "Kassambara", role = c("aut", "cre"), email = "alboukadel.kassambara@gmail.com"),
-    person("Marcin", "Kosinski", role = c("aut"), email = "m.p.kosinski@@gmail.com"),
+    person("Marcin", "Kosinski", role = c("aut"), email = "m.p.kosinski@gmail.com"),
     person("Przemyslaw", "Biecek", role = c("aut"), email = "przemyslaw.biecek@gmail.com"),
     person("Scheipl", "Fabian", role = c("ctb"), email = "fabian.scheipl@gmail.com"))
 Description: Contains the function 'ggsurvplot()' for drawing easily beautiful
@@ -16,7 +16,7 @@ License: GPL-2
 LazyData: TRUE
 Encoding: UTF-8
 Depends:
-    ggplot2,
+    ggplot2(>= 3.4.0),
     ggpubr(>= 0.1.6)
 Imports:
     grid,
@@ -30,7 +30,6 @@ Imports:
     broom,
     dplyr,
     tidyr,
-    survMisc,
     purrr,
     tibble,
     rlang,
@@ -43,9 +42,9 @@ Suggests:
     testthat,
     rmarkdown
 VignetteBuilder: knitr
-URL:  https://rpkgs.datanovia.com/survminer/index.html
+URL: https://rpkgs.datanovia.com/survminer/index.html
 BugReports: https://github.com/kassambara/survminer/issues
-RoxygenNote: 7.1.1
+RoxygenNote: 7.3.3
 Collate: 
     'BMT.R'
     'BRCAOV.survInfo.R'
@@ -79,3 +78,4 @@ Collate:
     'surv_group_by.R'
     'surv_fit.R'
     'surv_median.R'
+    'weighted_logrank.R'

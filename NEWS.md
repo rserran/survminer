@@ -1,4 +1,4 @@
-# Survminer 0.4.9.999
+# survminer 0.5.2.999
 
 ## New features
 
@@ -8,6 +8,62 @@
 
 ## Bug fixes
 
+# survminer 0.5.2
+
+## New features
+
+## Major changes
+
+- Remove `survMisc` dependency: weighted log-rank tests (Gehan-Breslow, Tarone-Ware, Peto-Peto, modified Peto-Peto, Fleming-Harrington, test-for-trend) are now computed internally using base R, avoiding the at-risk `survMisc` package. All existing `method` arguments in `surv_pvalue()` and `log.rank.weights` in `ggsurvplot()` continue to work identically.
+
+## Minor changes
+
+- Update ggplot2 API usage: replace deprecated `size` with `linewidth` for line geoms, and `is.ggplot()` with `is_ggplot()` (#692, #693)
+
+## Bug fixes
+
+- Fix `GeomConfint` incompatibility with ggplot2 4.0.x: normalize `linewidth` and `linetype` after stairstep transformation to prevent "Aesthetics can not vary along a ribbon" error (#694)
+- Fix `surv_fit()` error when using list of formulas with list of data sets (`match.fd = FALSE`): replace defunct `dplyr::combine()` with `unlist(recursive = FALSE)` (#697, #699)
+
+
+# survminer 0.5.1
+
+## Bug fixes
+
+- Fix chart/risk table misalignment with ggplot2 >= 3.5.0 by using dynamic panel detection instead of hardcoded grob indices (#649, #675)
+- Fix R CMD check global variable binding warnings in `.add_surv_median()`
+- Fix `ggcoxdiagnostics()` x-axis scaling when using `ox.scale = "time"` with Schoenfeld residuals (#608)
+- Fix ggplot2 3.5.0 aesthetic length warning when using `surv.median.line = "hv"` or `"h"` with multiple survival curves (#643)
+- Fix compatibility with ggplot2 development version (#681): Remove manual class assignment in `theme_survminer()` to ensure proper theme object construction
+- Fix test suite compatibility with ggplot2 development version (#681): Update layer access syntax in tests to support both stable (`$layers`) and development (`@layers`) versions
+- Fix "Ignoring unknown labels" warnings by conditionally setting legend titles only for aesthetics that are actually used in plots
+- Update documentation to recommend `%++%` operator instead of `+` for adding themes to ggsurv objects with ggplot2 v >= 3.5.2
+- Fix documentation examples to consistently use `%++%` operator in `theme_survminer()` help
+
+
+
+# Survminer 0.5.0
+
+## Minor changes
+
+- R-ADDICT website is no longer live, so updating links in README (#622)
+- ggplot2 minimum version is now 3.4.0
+- Fixing tidyverse deprecated functions to minimize warnings (@tbaer-c7ks7s #579, and #665):
+  - dplyr::select_() -> dplyr::select()
+  - tidyr::gather_() -> tidyr::pivot_longer()
+  - ggplot2::aes_string() -> ggplot2::aes()
+
+## Bug fixes
+
+- Fixing Rd cross-references issue in the documentation (@HenningLorenzen-ext-bayer, #663). RD `\link{}` targets missing package added in the following Rd files:
+  -  ggadjustedcurves.Rd: coxph.object, coxph
+  -  ggcompetingrisks.Rd: survfit
+  -  ggcoxdiagnostics.Rd: coxph, coxph.object, residuals.coxph, geom_hline, geom_smooth
+  -  ggcoxfunctional.Rd: coxph, Surv, coxph.object, arrangeGrob, grid.arrange
+  -  ggcoxzph.Rd: plot.cox.zph, cox.zph, arrangeGrob, grid.arrange
+  -  ggsurvevents.Rd: Surv, survfit
+  -  ggsurvplot.Rd: grid.arrange
+  -  surv_cutpoint.Rd: theme_classic, grid.arrange
 - Fixing issue in the scaling factor for sd in `ggcoxzph()` (#534 and #535)
    
 # Survminer 0.4.9

@@ -33,10 +33,10 @@ opts_chunk$set(
 
 # Motivation
 
-[Hadley Wickham's ggplot2 version 2.0 revolution](https://www.r-bloggers.com/2015/12/ggplot-2-0-0/), at the end of 2015, triggered many crashes in dependent R packages, that finally led to deletions of few packages from [The Comprehensive R Archive Network](https://cran.r-project.org/). It occured that `survMisc` package was removed from CRAN on 27th of January 2016 and R world remained helpless in the struggle with the elegant visualizations of survival analysis. Then a new tool - [survminer](https://cran.r-project.org/package=survminer) package, created by [Alboukadel Kassambara](https://github.com/kassambara) - appeared on the R survival scene to fill the gap in visualizing the Kaplan-Meier estimates of survival curves in elegant grammar of graphics like way. This blog presents main features of core `ggsurvplot()` function from survminer package, *which creates the most informative, elegant and flexible survival plots that I have seen!*
+Hadley Wickham's ggplot2 version 2.0 revolution, at the end of 2015, triggered many crashes in dependent R packages, that finally led to deletions of few packages from [The Comprehensive R Archive Network](https://cran.r-project.org/). It occured that `survMisc` package was removed from CRAN on 27th of January 2016 and R world remained helpless in the struggle with the elegant visualizations of survival analysis. Then a new tool - [survminer](https://cran.r-project.org/package=survminer) package, created by [Alboukadel Kassambara](https://github.com/kassambara) - appeared on the R survival scene to fill the gap in visualizing the Kaplan-Meier estimates of survival curves in elegant grammar of graphics like way. This blog presents main features of core `ggsurvplot()` function from survminer package, *which creates the most informative, elegant and flexible survival plots that I have seen!*
 
 
-During the development of [RTCGA](http://rtcga.github.io/RTCGA/) package (about which I wrote [here](http://r-addict.com/2016/05/04/RTCGA-Quick-Guide.html)) we encountered a need to provide the simplest possible interface to estimates of survival curves for biotechnologists and [the discovery of `ggsurvplot()`](http://www.sthda.com/english/wiki/survminer-r-package-survival-data-analysis-and-visualization) was a bull's-eye! [Many have tried](https://github.com/tidyverse/ggplot2/issues/1080) to provide a package or function for ggplot2-like plots that would present the basic tool of survival analysis: Kaplan-Meier estimates of survival curves, but none of earlier attempts have provided such a rich structure of features and flexibility as survminer. 
+During the development of [RTCGA](https://rtcga.github.io/RTCGA/) package there was a need to provide the simplest possible interface to estimates of survival curves for biotechnologists and [the discovery of `ggsurvplot()`](https://www.sthda.com/english/wiki/survminer-r-package-survival-data-analysis-and-visualization) was a bull's-eye! [Many have tried](https://github.com/tidyverse/ggplot2/issues/1080) to provide a package or function for ggplot2-like plots that would present the basic tool of survival analysis: Kaplan-Meier estimates of survival curves, but none of earlier attempts have provided such a rich structure of features and flexibility as survminer. 
 On basis of estimates of survival curves one can infere on differences in survival times between compared groups, so survival plots are very useful and can be seen in almost every publication in the field of survival analysis and time to event models. 
 
 # Example
@@ -97,7 +97,7 @@ Each parameter is described in the correspoding comment, but I would like to emp
 
 # Comparisons
 
-Even though [`survMisc`](https://cran.r-project.org/package=survMisc) have returned on CRAN, I've appreciated survminer so much that I would not look anymore for other solutions. Check why: at the end I present survival curves that can be obtained with the usage of `base` package and `survMisc` package.
+For comparison, below are survival curves obtained with the `base` package.
 
 ### base package
 
@@ -117,32 +117,4 @@ legend(100, .2, c("Ovarian Cancer", "Breast Cancer"),
 
 I haven't seen examples with risk table and adding legend isn't so quick as in survminer. Moreover, there are no minor axis breaks lines.
 
-### survMisc package
-
-```{r, fig.width=10, eval=FALSE}
-# install.packages('survMisc')
-library(survMisc)
-survMisc:::autoplot.survfit(fit) # no customization
-
-```
-
-*Why colours are not asigned to any group? Where is the legend? Why there is so much white space to the right?* (Those were questions for the version of survMisc where this was an issue.) Where is OX axis?
-
-```{r, fig.width=10, eval = FALSE}
-survMisc:::autoplot.survfit( # with some hard customization
-   fit,
-   type = "fill",
-   pVal=TRUE
-) -> fit.survMisc 
-fit.survMisc$table <- fit.survMisc$table +
-   theme_minimal() + # theme(legend.position = "top")
-   coord_cartesian(xlim = c(0,2000))
-fit.survMisc$plot <- fit.survMisc$plot +
-   theme_minimal() + 
-   coord_cartesian(xlim = c(0,2000))
-survMisc:::print.tableAndPlot(fit.survMisc)
-```
-
-Where is risk table? Why I can't pass `break.by.time` to have informative minor X axis breaks? Why the plot gets narrower when the legend in risk table gets wider and why I can't do anything to workaround this? 
-
-> Never mind -> `install.packages('survminer')`
+> The `survminer` package provides a much richer and more flexible interface for survival plots compared to base R graphics.

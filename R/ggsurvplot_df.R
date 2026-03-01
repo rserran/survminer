@@ -176,8 +176,8 @@ ggsurvplot_df <- function(fit, fun = NULL,
   #::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
   df[, .strata.var] <- factor( df[, .strata.var], levels = .levels(.strata), labels = legend.labs)
 
-  p <- ggplot2::ggplot(df, ggplot2::aes_string("time", "surv")) +
-    ggpubr::geom_exec(surv.geom, data = df, size = size, color = color, linetype = linetype, ...) +
+  p <- ggplot2::ggplot(df, ggplot2::aes(x = !!sym("time"), y = !!sym("surv"))) +
+    ggpubr::geom_exec(surv.geom, data = df, linewidth = size, color = color, linetype = linetype, ...) +
     ggplot2::scale_y_continuous(breaks = y.breaks, labels = scale_labels, limits = ylim, expand = .expand) +
     ggplot2::coord_cartesian(xlim = xlim)+
     ggtheme
@@ -232,10 +232,21 @@ ggsurvplot_df <- function(fit, fun = NULL,
   # Axis label and legend title
   #::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
   lty.leg.title <- ifelse(linetype == "strata", legend.title, linetype)
-  p <- p + ggplot2::labs(x = xlab, y = ylab, title = title,
-                         color = legend.title, fill = legend.title,
-                         linetype = lty.leg.title
-  )
+  
+  # Build labs() arguments - only include aesthetics that are actually used
+  labs_args <- list(x = xlab, y = ylab, title = title, color = legend.title)
+  
+  # Add fill legend only if confidence interval ribbon is used
+  if(conf.int && conf.int.style == "ribbon") {
+    labs_args$fill <- legend.title
+  }
+  
+  # Add linetype legend only if linetype is used as an aesthetic mapping
+  if(linetype == "strata") {
+    labs_args$linetype <- lty.leg.title
+  }
+  
+  p <- p + do.call(ggplot2::labs, labs_args)
   p <-  .set_general_gpar(p, legend = legend, ...) # general graphical parameters
   if(!is.null(linetype.manual)) p <- p + scale_linetype_manual(values = linetype.manual)
 

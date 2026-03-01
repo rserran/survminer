@@ -45,13 +45,13 @@ Default theme for plots generated with survminer.
 }
 \section{Functions}{
 \itemize{
-\item \code{theme_survminer}: Default theme for survminer plots. A theme similar to theme_classic() with large font size.
+\item \code{theme_survminer()}: Default theme for survminer plots. A theme similar to theme_classic() with large font size.
 
-\item \code{theme_cleantable}: theme for drawing a clean risk table and cumulative
+\item \code{theme_cleantable()}: theme for drawing a clean risk table and cumulative
 number of events table. A theme similar to theme_survminer() without i)
 axis lines and, ii) x axis ticks and title.
-}}
 
+}}
 \examples{
 
 # Fit survival curves
@@ -72,7 +72,7 @@ ggsurv <- ggsurvplot(fit, data = lung, risk.table = TRUE,
 # Change font size, style and color at the same time
 # Use font.x = 14, to change only font size; or use
 # font.x = "bold", to change only font face.
-ggsurv \%+\% theme_survminer(
+ggsurv \%++\% theme_survminer(
      font.main = c(16, "bold", "darkblue"),
      font.submain = c(15, "bold.italic", "purple"),
      font.caption = c(14, "plain", "orange"),

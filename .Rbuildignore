@@ -11,3 +11,8 @@
 ^doc$
 ^Meta$
 ^\.github$
+^pkgdown$
+^Makefile$
+^CRAN-SUBMISSION$
+^CLAUDE\.md$
+^\.claude$

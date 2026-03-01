@@ -8,15 +8,23 @@
 #' @importFrom purrr map
 #' @importFrom methods is
 #' @importFrom stats pchisq
-#' @importFrom survMisc ten comp
 #' @importFrom utils capture.output
+#' @importFrom rlang !! sym
 
+
+# Check if an installed package version is superior to a specified version
+# Version, pkg: character vector
+is_pkg_version_sup<- function(pkg, version){
+  vv <- as.character(utils::packageVersion(pkg))
+  cc <- utils::compareVersion(vv, version) > 0
+  cc
+}
 
 # Count the number of ggplots in a list
 .count_ggplots <- function(list.objects){
   nplot <- 0
   for(i in 1:length(list.objects)){
-    if(is.ggplot(list.objects[[i]])) nplot <- nplot +1
+    if(ggplot2::is_ggplot(list.objects[[i]])) nplot <- nplot +1
   }
   nplot
 }
@@ -55,7 +63,9 @@ GeomConfint <- ggplot2::ggproto('GeomConfint', ggplot2::GeomRibbon,
                                   if (na.rm) data <- data[stats::complete.cases(self$required_aes), ]
                                   data <- data[order(data$group, data$x), ]
                                   data <- self$stairstep_confint(data)
-                                  ggplot2:::GeomRibbon$draw_group(data, panel_scales, coord, na.rm = na.rm)
+                                  if (!is.null(data$linewidth)) data$linewidth <- data$linewidth[1]
+                                  if (!is.null(data$linetype)) data$linetype <- data$linetype[1]
+                                  ggplot2::GeomRibbon$draw_group(data, panel_scales, coord, na.rm = na.rm)
                                 },
                                 stairstep_confint = function (data) {
                                   data <- as.data.frame(data)[order(data$x), ]
@@ -81,7 +91,7 @@ GeomConfint_old <- ggplot2::ggproto('GeomConfint_old', ggplot2::GeomRibbon,
 #                                   if (na.rm) data <- data[stats::complete.cases(self$required_aes), ]
 #                                   data <- data[order(data$group, data$x), ]
 #                                   data <- self$stairstep_confint(data)
-#                                   ggplot2:::GeomRibbon$draw_group(data, panel_scales, coord, na.rm = FALSE)
+#                                   ggplot2::GeomRibbon$draw_group(data, panel_scales, coord, na.rm = FALSE)
 #                                 },
 #                                 stairstep_confint = function (data) {
 #                                   data <- as.data.frame(data)[order(data$x), ]
@@ -103,14 +113,20 @@ GeomConfint_old <- ggplot2::ggproto('GeomConfint_old', ggplot2::GeomRibbon,
 .trim <- function(x){gsub("^\\s+|\\s+$", "", x)}
 
 # Take a data frame and return a flatten value
-.flat <- function(x){
-  if(is.null(x)) return(NA)
+# Replacement of deprecated tidyr::gather_() by pivot_longer()
+# Use col_vary = "slowest" to keep the same behavior as gather_()
+.flat <- function(x) {
+  if (is.null(x)) return(NA)
   x <- as.data.frame(x)
-  x <- tidyr::gather_(x,
-                      key_col = "key", value_col = "value",
-                      gather_cols = colnames(x))
+  x <- tidyr::pivot_longer(x,
+                           cols = colnames(x), 
+                           names_to = "key",
+                           values_to = "value",
+                           cols_vary = "slowest")
+
   x$value
 }
+
 
 # extract dataset if not provided
 .get_data <- function(fit, data = NULL, complain = TRUE) {
