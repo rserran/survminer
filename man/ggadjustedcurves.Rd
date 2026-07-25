@@ -16,6 +16,17 @@ ggadjustedcurves(
   ylab = "Survival rate",
   size = 1,
   ggtheme = theme_survminer(),
+  risk.table = FALSE,
+  risk.table.height = 0.25,
+  risk.table.title = NULL,
+  break.time.by = NULL,
+  xlim = NULL,
+  tables.y.text = TRUE,
+  tables.theme = theme_survminer(),
+  fontsize = 4.5,
+  show.hr = FALSE,
+  hr.coord = NULL,
+  hr.size = 4,
   ...
 )
 
@@ -25,6 +36,7 @@ surv_adjustedcurves(
   data = NULL,
   reference = NULL,
   method = "conditional",
+  fun = NULL,
   size = 1,
   ...
 )
@@ -42,10 +54,12 @@ surv_adjustedcurves(
 'single' (average for population), 'average' (averages for subpopulations), 'marginal', 'conditional' (averages for subpopulations after rebalancing). See the Details section  for further information.}
 
 \item{fun}{an arbitrary function defining a transformation of the survival
-curve.  Often used transformations can be specified with a character
-argument: "event" plots cumulative events (f(y) = 1-y), "cumhaz" plots the
-cumulative hazard function (f(y) = -log(y)), and "pct" for survival
-probability in percentage.}
+curve. Often used transformations can be specified with a character argument:
+"event" plots cumulative events (f(y) = 1-y), "cumhaz" plots the cumulative
+hazard function (f(y) = -log(y)), and "pct" for survival probability in
+percentage. For \code{surv_adjustedcurves()} the transformation is applied to
+the returned survival column; the default \code{NULL} leaves the survival
+probabilities unchanged.}
 
 \item{palette}{the color palette to be used. Allowed values include "hue" for
 the default hue color scale; "grey" for grey color palettes; brewer palettes
@@ -62,10 +76,62 @@ function \link[grDevices]{palette}.}
 
 \item{ggtheme}{function, ggplot2 theme name. Allowed values include ggplot2 official themes: see \code{\link[ggplot2]{theme}}.}
 
+\item{risk.table}{logical value (or a valid \code{\link{ggsurvplot}()} risk-table
+string). Default is FALSE. If not FALSE, a number-at-risk table is drawn below
+the adjusted curves and the function returns a \code{\link{ggsurvplot}} object
+(printed with \code{print()}), instead of the plain \code{ggplot} returned by
+default. The table is the \strong{Kaplan-Meier} number at risk \emph{by the
+grouping} \code{variable}: the adjusted curves are model-based expectations for
+covariate profiles and have no literal number at risk of their own, so this
+table is meaningful only when \code{variable} is a real subgroup. It is computed
+on the rows the Cox model used (its complete cases), so its baseline count
+matches \code{fit$n}. For \code{method = "marginal"}/\code{"conditional"} the
+curves are balanced/reweighted while this count is the raw Kaplan-Meier number
+at risk. Note that when a table is drawn the return value is a \code{ggsurvplot}
+object, so post-hoc \code{+ theme()}/\code{+ scale_*} no longer apply -- use the
+arguments below (\code{xlim}, \code{break.time.by}, \code{ylab}, \code{palette},
+\code{ggtheme}) instead.}
+
+\item{risk.table.height}{the height of the risk table relative to the plot when
+\code{risk.table} is drawn. Default is 0.25.}
+
+\item{risk.table.title}{the risk-table title. Default \code{NULL} uses
+"Number at risk (Kaplan-Meier, by <variable>)".}
+
+\item{break.time.by, xlim}{numeric time-axis break interval and axis limits,
+applied to \emph{both} the curves and the risk table so the two panels line up.
+Defaults \code{NULL} use the automatic breaks and the data's time range.}
+
+\item{tables.y.text}{logical. Default TRUE. If FALSE, the risk-table strata tick
+labels are hidden.}
+
+\item{tables.theme, fontsize}{the theme and font size of the risk table, as in
+\code{\link{ggsurvplot}()}.}
+
+\item{show.hr}{logical. Default \code{FALSE}. If \code{TRUE}, annotate the plot
+with the covariate hazard ratio and 95\% confidence interval for the grouping
+\code{variable}, taken from the Cox model \code{fit} -- i.e. the hazard ratio
+\emph{adjusted} for the model's other terms. Drawn only when \code{variable}
+is an estimated model coefficient (not a \code{strata()} term, an interaction,
+or a non-treatment contrast such as an ordered factor); a factor with more
+than two levels shows one line per non-reference level.}
+
+\item{hr.coord}{numeric vector \code{c(x, y)} giving a time and survival point
+at which to place the hazard-ratio annotation \emph{inside} the panel, in a
+translucent box. This is manual placement: on a small figure a label near the
+panel centre can run past an edge, so adjust the coordinate or the figure size
+if it does. Default \code{NULL} draws the annotation as a subtitle above the
+plot instead, which keeps it clear of the curves at the usual figure sizes and
+for any \code{fun} transform.}
+
+\item{hr.size}{the font size of the hazard-ratio annotation. Default 4.}
+
 \item{...}{further arguments passed to the function \code{\link[ggpubr]{ggpar}} for customizing the plot.}
 }
 \value{
-Returns an object of class \code{gg}.
+Returns an object of class \code{gg} (a \code{ggplot}); when
+ \code{risk.table} is not FALSE, returns a \code{\link{ggsurvplot}} object
+ (curves + aligned number-at-risk table) instead.
 }
 \description{
 The function \code{surv_adjustedcurves()} calculates while the function \code{ggadjustedcurves()} plots adjusted survival curves for the \code{coxph} model.
@@ -109,6 +175,11 @@ ggadjustedcurves(fit2, data = bladder, method = "marginal", variable = "rx",
 # conditional balancing in groups
 ggadjustedcurves(fit2, data = bladder, method = "conditional", variable = "rx")
 curve <- surv_adjustedcurves(fit2, data = bladder, method = "conditional", variable = "rx")
+
+# With a Kaplan-Meier number-at-risk table by the grouping variable
+#:::::::::::::::::::::::::::::::::::::::::::::::::::::::
+ggadjustedcurves(fit2, data = bladder, method = "average", variable = "rx",
+                 risk.table = TRUE)
 
 \dontrun{
 # this will take some time

@@ -17,6 +17,8 @@ NULL
 #' @param ... additional arguments passed to the function \code{\link{ggsurvplot}()}.
 #' @author Alboukadel Kassambara, \email{alboukadel.kassambara@@gmail.com}
 #' @return a ggsurvplot
+#' @seealso \code{\link{ggsurvparametric}}, which draws the same parametric-over-KM
+#'  overlay for \code{survreg} models as well as \code{flexsurvreg}.
 #' @examples
 #' \donttest{
 #' if(require("flexsurv")) {
@@ -55,7 +57,7 @@ ggflexsurvplot <- function(fit, data = NULL,
   .strata <- summ$strata
   n.strata <- .strata %>% .levels() %>% length()
 
-   fit.ext <- .extract.survfit(fit)
+   fit.ext <- .extract.survfit(fit, data = data)
    surv.obj <- fit.ext$surv
    surv.vars <- fit.ext$variables
    .formula <- fit.ext$formula
@@ -93,14 +95,14 @@ ggflexsurvplot <- function(fit, data = NULL,
   time <- est <- strata <- lcl <- ucl <- NULL
   ggsurv$plot <- ggsurv$plot +
     geom_line(aes(time, est, color = strata),
-              data = summ, size = size)
+              data = summ, linewidth = size)
 
   if(conf.int.flex)
     ggsurv$plot <- ggsurv$plot +
     geom_line(aes(time, lcl, color = strata), data = summ,
-              size = 0.5, linetype = "dashed")+
+              linewidth = 0.5, linetype = "dashed")+
     geom_line(aes(time, ucl, color = strata), data = summ,
-              size = 0.5, linetype = "dashed")
+              linewidth = 0.5, linetype = "dashed")
 
 
   ggsurv
@@ -117,7 +119,12 @@ ggflexsurvplot <- function(fit, data = NULL,
     summ <- summary(fit, type = type)
 
   if(length(summ) == 1){
-    summ <- summary(fit)[[1]] %>%
+    # Use the summary already selected above (the user-supplied summary.flexsurv,
+    # or summary(fit, type = type)); previously this branch recomputed
+    # summary(fit)[[1]] with the DEFAULT t and type, discarding a user summary
+    # meant to extend the curve (e.g. to a wider xlim) and ignoring `fun`/type
+    # for single-stratum fits (#400).
+    summ <- summ[[1]] %>%
       dplyr::mutate(strata = "All")
   }
 
@@ -145,5 +152,5 @@ ggflexsurvplot <- function(fit, data = NULL,
 }
 
 is_factor_or_character <- function(x){
-  is.facet(x) | is.character(x)
+  is.factor(x) | is.character(x)
 }

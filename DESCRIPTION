@@ -17,7 +17,8 @@ LazyData: TRUE
 Encoding: UTF-8
 Depends:
     ggplot2(>= 3.4.0),
-    ggpubr(>= 0.1.6)
+    ggpubr(>= 0.1.6),
+    R (>= 2.10)
 Imports:
     grid,
     gridExtra (>= 2.0),
@@ -38,9 +39,12 @@ Suggests:
     knitr,
     flexsurv,
     cmprsk,
+    tidycmprsk,
     markdown,
     testthat,
-    rmarkdown
+    rmarkdown,
+    survRM2,
+    prodlim
 VignetteBuilder: knitr
 URL: https://rpkgs.datanovia.com/survminer/index.html
 BugReports: https://github.com/kassambara/survminer/issues
@@ -49,6 +53,8 @@ Collate:
     'BMT.R'
     'BRCAOV.survInfo.R'
     'add_ggsurvplot.R'
+    'customize_labels.R'
+    'adtte.R'
     'utilities.R'
     'surv_summary.R'
     'ggsurvtable.R'
@@ -64,18 +70,28 @@ Collate:
     'ggcompetingrisks.R'
     'ggcoxdiagnostics.R'
     'ggcoxfunctional.R'
+    'ggcoxnph.R'
     'ggcoxzph.R'
     'ggflexsurvplot.R'
     'ggforest.R'
+    'ggforest_subgroup.R'
+    'ggforest_models.R'
+    'gglandmark.R'
+    'ggmilestone.R'
+    'ggrmst.R'
     'ggsurvevents.R'
+    'ggsurvparametric.R'
     'ggsurvplot_combine.R'
     'ggsurvplot_facet.R'
     'ggsurvtheme.R'
     'ggurvplot_arguments.R'
     'myeloma.R'
     'pairwise_survdiff.R'
+    'presets.R'
+    'surv_adtte.R'
     'surv_cutpoint.R'
     'surv_group_by.R'
     'surv_fit.R'
     'surv_median.R'
+    'surv_median_followup.R'
     'weighted_logrank.R'

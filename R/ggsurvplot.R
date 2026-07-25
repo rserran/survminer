@@ -73,16 +73,21 @@ NULL
 #'  \item \strong{legend.title}: legend title.
 #'  \item \strong{legend.labs}: character vector specifying legend labels. Used to replace
 #'  the names of the strata from the fit. Should be given in the same order as
-#'  those strata.
+#'  those strata. May also be a vector or list of \code{\link[grDevices]{plotmath}}
+#'  expressions (e.g. \code{c(expression(beta[1]), expression(x^2))}) to render
+#'  superscripts, subscripts and Greek letters in the legend and the
+#'  number-at-risk table, with the palette unchanged.
 #'}
 #'
 #'
 #'@section Axis limits, breaks and scales:
 #'\itemize{
-#' \item \strong{break.time.by}: numeric value controlling time axis breaks. Default value
-#'  is NULL.
-#'  \item \strong{break.x.by}: alias of break.time.by. Numeric value controlling x axis
-#'  breaks. Default value is NULL.
+#' \item \strong{break.time.by}: numeric value controlling time axis breaks. A
+#'  single value gives regularly spaced breaks; a numeric vector is used as the
+#'  exact break positions (e.g. \code{c(0, 100, 300, 600)}), keeping the curve
+#'  and the risk/censor tables aligned. Default value is NULL.
+#'  \item \strong{break.x.by}: alias of break.time.by. Numeric value (or vector)
+#'  controlling x axis breaks. Default value is NULL.
 #'  \item \strong{break.y.by}: same as break.x.by but for y axis.
 #'  \item \strong{surv.scale}: scale transformation of survival curves. Allowed values are
 #'  "default" or "percent".
@@ -112,6 +117,10 @@ NULL
 #'  \item \strong{pval.coord}: numeric vector, of length 2,
 #'  specifying the x and y coordinates of the p-value.
 #'  Default values are NULL.
+#'  \item \strong{pval.parse}: logical. If TRUE, a custom p-value string given
+#'  via \code{pval} is parsed as a plotmath expression, allowing
+#'  italic/superscript p-values (e.g. \code{pval = "italic(P)==1.4~x~10^-6"}).
+#'  The auto-computed p-value is plain text, not plotmath. Default is FALSE.
 #'  \item \strong{pval.method.size}: the same as \code{pval.size} but for displaying
 #'  \code{log.rank.weights} name.
 #'  \item \strong{pval.method.coord}: the same as \code{pval.coord} but for displaying
@@ -220,7 +229,37 @@ NULL
 #'  Use font.x = 14, to change only font size; or use font.x =
 #'  "bold", to change only font face.
 #'
-#'@return return an object of class ggsurvplot which is list containing the
+#'@param output one of \code{"classic"} (default) or \code{"ggplot"}. With
+#'  \code{"classic"} the usual compound \code{ggsurvplot} object is returned
+#'  (unchanged). With \code{"ggplot"} a single survival-curve \code{ggplot} is
+#'  returned instead -- one object that composes normally with \code{+ geom_*},
+#'  \code{ggsave()} and \code{facet_wrap()} (useful for adding your own layers, e.g.
+#'  an RMST area or a cumulative-incidence overlay). Any \code{pval},
+#'  \code{conf.int} and \code{surv.median.line} are kept (they live on the curve).
+#'  A risk / cumulative-events / cumulative-censor table or a separate censor
+#'  barplot cannot be embedded in a single ggplot, so \code{risk.table},
+#'  \code{cumevents}, \code{cumcensor} and \code{ncensor.plot} are dropped with a
+#'  warning if requested; use the default and its \code{$table} for those. Faceting
+#'  an \emph{external} covariate (not the strata) still needs
+#'  \code{\link{ggsurvplot_facet}()}, which recomputes the curves per panel; a plain
+#'  \code{facet_wrap()} on the returned plot does not, and a single \code{pval}
+#'  annotation is replicated into every panel. \code{group.by} and an uncombined list
+#'  of fits produce several plots (not one), so \code{output = "ggplot"} falls back to
+#'  the classic object there (with a warning).
+#'@param preset a publication preset that bundles sensible defaults so a single
+#'  call yields a ready-to-publish figure. One of \code{"none"} (default, no
+#'  preset), \code{"publication"} (full evidence panel: confidence bands, log-rank
+#'  p-value, median-survival lines, number-at-risk table, colourblind-safe palette,
+#'  clean theme), \code{"minimal"} (airy single panel, no table or bands),
+#'  \code{"classic"} (grey textbook step curves with a risk table) or
+#'  \code{"presentation"} (bold, large fonts for slides). A preset only sets
+#'  arguments you did \strong{not} pass yourself, so any explicit argument (e.g.
+#'  \code{conf.int = FALSE}, \code{palette = "npg"}) always overrides it. The
+#'  companion themes \code{\link{theme_surv_classic}()}, \code{_minimal()} and
+#'  \code{_bold()} can also be used on their own via \code{ggtheme}.
+#'@return an object of class ggsurvplot (a list) by default, or -- when
+#'  \code{output = "ggplot"} -- a single survival-curve \code{ggplot}. The
+#'  \code{ggsurvplot} list contains the
 #'  following components: \itemize{ \item plot: the survival plot (ggplot
 #'  object) \item table: the number of subjects at risk table per time (ggplot
 #'  object). \item cumevents: the cumulative number of events table (ggplot
@@ -231,6 +270,15 @@ NULL
 #'
 #'@author Alboukadel Kassambara, \email{alboukadel.kassambara@@gmail.com}
 #' @examples
+#'
+#'#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+#'# A single composable ggplot: output = "ggplot"
+#'#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+#'require("survival")
+#'fit <- survfit(Surv(time, status) ~ sex, data = lung)
+#'p <- ggsurvplot(fit, data = lung, conf.int = TRUE, output = "ggplot")
+#'# p is a plain ggplot -- add your own layers, save it, facet it
+#'p + geom_hline(yintercept = 0.5, linetype = "dashed")
 #'
 #'#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #'# Example 1: Survival curves with two groups
@@ -342,22 +390,105 @@ ggsurvplot <- function(fit, data = NULL, fun = NULL,
                        group.by = NULL, facet.by = NULL, add.all = FALSE, combine = FALSE,
                        ggtheme = theme_survminer(),
                        tables.theme = ggtheme,
+                       output = c("classic", "ggplot"),
+                       preset = "none",
                        ...
 ){
+  output <- match.arg(output)
+  preset <- match.arg(preset, c("none", names(.survminer_presets())))
 
   if(length(group.by) > 2)
     stop("group.by should be of length 1 or 2.")
 
+  # `risk.table.y.text = TRUE` cannot show strata labels for an in-plot risk table
+  # (`risk.table.pos = "in"`): the table is drawn over the survival panel's own
+  # y-axis, so its rows are coloured by strata (matching the curves) rather than
+  # labelled. Tell the user instead of silently ignoring an explicit request. This
+  # fires only when BOTH `risk.table.pos = "in"` and `risk.table.y.text = TRUE` are
+  # explicitly passed (both live in `...`, absent otherwise), so a default in-plot
+  # table -- which carries `risk.table.y.text = TRUE` by default -- is not spammed (#211).
+  .dots <- list(...)
+  # `risk.table` is TRUE/FALSE or a table-type string; both draw an in-plot table.
+  # Test the type strings against the allowed set (kept in sync with
+  # .parse_risk_table_arg() in ggsurvplot_core.R) so an INVALID string -- which
+  # errors there anyway -- does not get this message before its own error.
+  .rt.draws.table <- isTRUE(risk.table) ||
+    (is.character(risk.table) && length(risk.table) == 1L && risk.table %in%
+       c("absolute", "percentage", "abs_pct", "nrisk_cumcensor", "nrisk_cumevents"))
+  if (.rt.draws.table &&
+      identical(.dots[["risk.table.pos"]], "in") &&
+      isTRUE(.dots[["risk.table.y.text"]]))
+    message("`risk.table.y.text = TRUE` has no effect with `risk.table.pos = \"in\"`: ",
+            "the in-plot risk table is coloured by strata (matching the curves) instead ",
+            "of labelled, to avoid overlapping the survival plot's y-axis. Use ",
+            "`risk.table.pos = \"out\"` if you need text strata labels.")
+
+  # output = "ggplot" returns a SINGLE ggplot, so it is only meaningful for the
+  # single-plot paths. `group.by` and an uncombined list of fits produce MULTIPLE
+  # plots (a `ggsurvplot_list`), which cannot be one ggplot; there, fall back to the
+  # classic object WITH its tables intact (do this BEFORE the table-drop below, so
+  # the fall-back object is a true classic object, not a stripped one) and warn once.
+  if (identical(output, "ggplot") &&
+      (!is.null(group.by) || (.is_list(fit) && !isTRUE(combine)))) {
+    warning("`output = \"ggplot\"` returns a single ggplot and is not available for ",
+            "`group.by` or an uncombined list of fits (which produce several plots); ",
+            "returning the classic object.", call. = FALSE)
+    output <- "classic"
+  }
+
+  # output = "ggplot": return a single, composable survival-curve ggplot instead of
+  # the compound `ggsurvplot` object. A single ggplot cannot embed an aligned risk /
+  # cumulative-events / cumulative-censor table or a separate censor barplot (those
+  # are a multi-panel assembly), so any such request is dropped here -- with a
+  # warning only when one was actually made, so a plain `output = "ggplot"` call is
+  # quiet. The curve itself is byte-identical whether or not a table was requested,
+  # so dropping the table changes nothing on the returned curve.
+  if (identical(output, "ggplot")) {
+    if (.rt.draws.table || isTRUE(cumevents) || isTRUE(cumcensor) ||
+        isTRUE(.dots[["ncensor.plot"]]))
+      warning("`output = \"ggplot\"` returns the survival-curve panel only; ",
+              "`risk.table`/`cumevents`/`cumcensor`/`ncensor.plot` cannot be embedded ",
+              "in a single ggplot and are dropped. Use the default ",
+              "`output = \"classic\"` (then `$table`) for those.", call. = FALSE)
+    risk.table <- FALSE
+    cumevents <- FALSE
+    cumcensor <- FALSE
+  }
+
+  # Publication preset resolution (preset != "none"). Apply the preset's defaults
+  # ONLY for arguments the user did not pass, so an explicit user value always
+  # wins. `match.call(expand.dots = TRUE)` names every supplied argument by its
+  # full formal name (completing partial names and naming positionals) and keeps
+  # `...` keys verbatim, so both formals and dots are detected uniformly. Keys
+  # that are ggsurvplot() formals override the built `opts`/`opts_df` (below);
+  # non-formal keys ride along in `.dots`. `preset = "none"` is a strict no-op.
+  inject_formal <- list()
+  if (!identical(preset, "none")) {
+    mc <- match.call(expand.dots = TRUE)
+    supplied <- names(mc); supplied <- supplied[nzchar(supplied)]
+    defs <- .resolve_preset(preset, fit)
+    inject <- defs[setdiff(names(defs), supplied)]
+    fn <- names(formals(sys.function()))
+    inject_formal <- inject[intersect(names(inject), fn)]
+    inject_dots   <- inject[setdiff(names(inject), fn)]
+    # when the preset sets ggtheme and neither the user nor the preset set
+    # tables.theme, let the tables inherit the preset theme (tables.theme defaults
+    # to ggtheme). A preset's own tables.theme (e.g. theme_cleantable()) wins.
+    if ("ggtheme" %in% names(inject_formal) && !("tables.theme" %in% supplied) &&
+        is.null(inject_formal$tables.theme))
+      inject_formal$tables.theme <- inject_formal$ggtheme
+    .dots <- utils::modifyList(.dots, inject_dots)
+  }
 
   # Options for ggsurvplot_df
   # Don't accept arguments for pval and survival tables
-  opts_df <- list(
+  opts_df <- c(list(
                 fit = fit, fun = fun,
                 color = color, palette = palette, linetype = linetype,
-                conf.int = conf.int,  ggtheme = ggtheme, ...)
+                conf.int = conf.int,  ggtheme = ggtheme), .dots)
 
   # Options for the remaining ggsurvplot_*() functions
-  opts <- list(
+  opts <- c(list(
                fit = fit, data = data, fun = fun,
                color = color, palette = palette, linetype = linetype,
                conf.int = conf.int, pval = pval, pval.method = pval.method,
@@ -365,7 +496,22 @@ ggsurvplot <- function(fit, data = NULL, fun = NULL,
                surv.median.line = surv.median.line,
                risk.table = risk.table, cumevents = cumevents, cumcensor = cumcensor,
                tables.height = tables.height, ggtheme = ggtheme,
-               tables.theme = tables.theme, ...)
+               tables.theme = tables.theme), .dots)
+
+  # Apply preset formal-argument defaults to the assembled option lists (only the
+  # keys the user did not pass; see above). This reaches every dispatch branch.
+  if (length(inject_formal) > 0) {
+    opts <- utils::modifyList(opts, inject_formal)
+    opts_df <- utils::modifyList(opts_df,
+                                 inject_formal[names(inject_formal) %in% names(opts_df)])
+    # output = "ggplot" returns the curve panel only and cannot carry a table;
+    # a preset would otherwise inject one only for it to be discarded. Re-drop.
+    if (identical(output, "ggplot")) {
+      opts$risk.table <- FALSE
+      opts$cumevents <- FALSE
+      opts$cumcensor <- FALSE
+    }
+  }
 
 
 
@@ -377,7 +523,18 @@ ggsurvplot <- function(fit, data = NULL, fun = NULL,
   }
 
   else if(is.data.frame(fit))
-    ggsurv <- do.call(ggsurvplot_df, opts_df)
+    # Data-frame (surv_summary) input. Route through a wrapper that also builds
+    # the number-at-risk / cumulative tables from the data frame when requested
+    # (#409); with no table requested it returns the bare ggplot exactly as
+    # ggsurvplot_df() did.
+    # Read the table arguments from `opts` (not the raw formals) so a preset's
+    # injected risk.table / tables.theme / ... also reach the data-frame path.
+    ggsurv <- do.call(.ggsurvplot_df_tables,
+                      c(opts_df, list(risk.table = opts$risk.table,
+                                      cumevents = opts$cumevents,
+                                      cumcensor = opts$cumcensor,
+                                      tables.height = opts$tables.height,
+                                      tables.theme = opts$tables.theme)))
 
   else if(.is_survfit(fit)){
 
@@ -395,7 +552,11 @@ ggsurvplot <- function(fit, data = NULL, fun = NULL,
 
     else{
       if(is.null(fit$strata)){
-        if(missing(conf.int)){
+        # Default a null-model curve to a shaded confidence band -- but not when a
+        # preset already set conf.int (e.g. minimal sets it FALSE); the preset
+        # must win. `missing(conf.int)` alone would clobber the preset because the
+        # preset injects into `opts`, not the formal.
+        if(missing(conf.int) && is.null(inject_formal$conf.int)){
           opts$conf.int = TRUE
           opts$conf.int.fill = "strata"
         }
@@ -408,6 +569,19 @@ ggsurvplot <- function(fit, data = NULL, fun = NULL,
   else if(inherits(fit, "flexsurvreg"))
     ggsurv <- do.call(ggflexsurvplot, opts)
 
+
+  # Classic (default) returns the compound ggsurvplot object unchanged. For
+  # output = "ggplot" return the bare survival-curve ggplot: the `$plot` panel of a
+  # compound object, or the object itself when the path already produced a single
+  # ggplot (e.g. a bare faceted plot after the table was dropped above).
+  if (identical(output, "ggplot")) {
+    if (inherits(ggsurv, "ggplot"))
+      return(ggsurv)
+    if (!is.null(ggsurv$plot) && inherits(ggsurv$plot, "ggplot"))
+      return(ggsurv$plot)
+    warning("`output = \"ggplot\"` is not available for this input; returning the ",
+            "classic object.", call. = FALSE)
+  }
 
   return(ggsurv)
 }
@@ -427,4 +601,18 @@ print.ggsurvplot <- function(x, surv.plot.height = NULL, risk.table.height = NUL
   if(newpage) grid::grid.newpage()
   grid::grid.draw(res)
 
+}
+
+#' @param recording kept for consistency with the \code{\link[grid]{grid.draw}}
+#'   generic; not used.
+#' @method grid.draw ggsurvplot
+#' @rdname ggsurvplot
+#' @export
+grid.draw.ggsurvplot <- function(x, recording = TRUE){
+  # A ggsurvplot object is a list of ggplots, so ggsave() (which calls
+  # grid::grid.draw() on the plot) has no applicable method and errors. This
+  # method draws the assembled plot onto the current device without opening a
+  # new page, so `ggsave(filename, plot = p)` works directly for a ggsurvplot
+  # (curve + risk table) and no leading blank page is produced (#152).
+  print(x, newpage = FALSE)
 }

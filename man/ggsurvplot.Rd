@@ -3,6 +3,7 @@
 \name{ggsurvplot}
 \alias{ggsurvplot}
 \alias{print.ggsurvplot}
+\alias{grid.draw.ggsurvplot}
 \title{Drawing Survival Curves Using ggplot2}
 \usage{
 ggsurvplot(
@@ -27,6 +28,8 @@ ggsurvplot(
   combine = FALSE,
   ggtheme = theme_survminer(),
   tables.theme = ggtheme,
+  output = c("classic", "ggplot"),
+  preset = "none",
   ...
 )
 
@@ -38,6 +41,8 @@ ggsurvplot(
   newpage = TRUE,
   ...
 )
+
+\method{grid.draw}{ggsurvplot}(x, recording = TRUE)
 }
 \arguments{
 \item{fit}{allowed values include:
@@ -107,10 +112,13 @@ to show both absolute number and percentage. \item "nrisk_cumcensor" and
 censoring and events, respectively. }}
 
 \item{cumevents}{logical value specifying whether to show or not the table of
-the cumulative number of events. Default is FALSE.}
+the cumulative number of events. Default is FALSE. Can also be a character
+string ("absolute", "percentage" or "abs_pct"); "percentage" shows the count
+as a percent of the stratum size.}
 
 \item{cumcensor}{logical value specifying whether to show or not the table of
-the cumulative number of censoring. Default is FALSE.}
+the cumulative number of censoring. Default is FALSE. Can also be a character
+string ("absolute", "percentage" or "abs_pct").}
 
 \item{tables.height}{numeric value (in [0 - 1]) specifying the general height
 of all tables under the main survival plot.}
@@ -136,6 +144,36 @@ Alias of the \code{\link{ggsurvplot_combine}()} function.}
 \link{theme_survminer}. Allowed values include ggplot2 official themes: see
 \code{\link[ggplot2]{theme}}. Note that, \code{tables.theme} is incremental to \code{ggtheme}.}
 
+\item{output}{one of \code{"classic"} (default) or \code{"ggplot"}. With
+\code{"classic"} the usual compound \code{ggsurvplot} object is returned
+(unchanged). With \code{"ggplot"} a single survival-curve \code{ggplot} is
+returned instead -- one object that composes normally with \code{+ geom_*},
+\code{ggsave()} and \code{facet_wrap()} (useful for adding your own layers, e.g.
+an RMST area or a cumulative-incidence overlay). Any \code{pval},
+\code{conf.int} and \code{surv.median.line} are kept (they live on the curve).
+A risk / cumulative-events / cumulative-censor table or a separate censor
+barplot cannot be embedded in a single ggplot, so \code{risk.table},
+\code{cumevents}, \code{cumcensor} and \code{ncensor.plot} are dropped with a
+warning if requested; use the default and its \code{$table} for those. Faceting
+an \emph{external} covariate (not the strata) still needs
+\code{\link{ggsurvplot_facet}()}, which recomputes the curves per panel; a plain
+\code{facet_wrap()} on the returned plot does not, and a single \code{pval}
+annotation is replicated into every panel. \code{group.by} and an uncombined list
+of fits produce several plots (not one), so \code{output = "ggplot"} falls back to
+the classic object there (with a warning).}
+
+\item{preset}{a publication preset that bundles sensible defaults so a single
+call yields a ready-to-publish figure. One of \code{"none"} (default, no
+preset), \code{"publication"} (full evidence panel: confidence bands, log-rank
+p-value, median-survival lines, number-at-risk table, colourblind-safe palette,
+clean theme), \code{"minimal"} (airy single panel, no table or bands),
+\code{"classic"} (grey textbook step curves with a risk table) or
+\code{"presentation"} (bold, large fonts for slides). A preset only sets
+arguments you did \strong{not} pass yourself, so any explicit argument (e.g.
+\code{conf.int = FALSE}, \code{palette = "npg"}) always overrides it. The
+companion themes \code{\link{theme_surv_classic}()}, \code{_minimal()} and
+\code{_bold()} can also be used on their own via \code{ggtheme}.}
+
 \item{...}{Futher arguments as described hereafter and
 other arguments to be passed i) to ggplot2 geom_*() functions such
  as linetype, size, ii) or to the function \link[ggpubr]{ggpar}() for
@@ -154,9 +192,14 @@ risk.table = FALSE.}
 \code{ncensor.plot = TRUE}.}
 
 \item{newpage}{open a new page. See \code{\link[gridExtra]{grid.arrange}}}
+
+\item{recording}{kept for consistency with the \code{\link[grid]{grid.draw}}
+generic; not used.}
 }
 \value{
-return an object of class ggsurvplot which is list containing the
+an object of class ggsurvplot (a list) by default, or -- when
+ \code{output = "ggplot"} -- a single survival-curve \code{ggplot}. The
+ \code{ggsurvplot} list contains the
  following components: \itemize{ \item plot: the survival plot (ggplot
  object) \item table: the number of subjects at risk table per time (ggplot
  object). \item cumevents: the cumulative number of events table (ggplot
@@ -221,17 +264,22 @@ Customize survival plots and tables. See also \link{ggsurvplot_arguments}.
  \item \strong{legend.title}: legend title.
  \item \strong{legend.labs}: character vector specifying legend labels. Used to replace
  the names of the strata from the fit. Should be given in the same order as
- those strata.
+ those strata. May also be a vector or list of \code{\link[grDevices]{plotmath}}
+ expressions (e.g. \code{c(expression(beta[1]), expression(x^2))}) to render
+ superscripts, subscripts and Greek letters in the legend and the
+ number-at-risk table, with the palette unchanged.
 }
 }
 
 \section{Axis limits, breaks and scales}{
 
 \itemize{
-\item \strong{break.time.by}: numeric value controlling time axis breaks. Default value
- is NULL.
- \item \strong{break.x.by}: alias of break.time.by. Numeric value controlling x axis
- breaks. Default value is NULL.
+\item \strong{break.time.by}: numeric value controlling time axis breaks. A
+ single value gives regularly spaced breaks; a numeric vector is used as the
+ exact break positions (e.g. \code{c(0, 100, 300, 600)}), keeping the curve
+ and the risk/censor tables aligned. Default value is NULL.
+ \item \strong{break.x.by}: alias of break.time.by. Numeric value (or vector)
+ controlling x axis breaks. Default value is NULL.
  \item \strong{break.y.by}: same as break.x.by but for y axis.
  \item \strong{surv.scale}: scale transformation of survival curves. Allowed values are
  "default" or "percent".
@@ -264,6 +312,10 @@ Customize survival plots and tables. See also \link{ggsurvplot_arguments}.
  \item \strong{pval.coord}: numeric vector, of length 2,
  specifying the x and y coordinates of the p-value.
  Default values are NULL.
+ \item \strong{pval.parse}: logical. If TRUE, a custom p-value string given
+ via \code{pval} is parsed as a plotmath expression, allowing
+ italic/superscript p-values (e.g. \code{pval = "italic(P)==1.4~x~10^-6"}).
+ The auto-computed p-value is plain text, not plotmath. Default is FALSE.
  \item \strong{pval.method.size}: the same as \code{pval.size} but for displaying
  \code{log.rank.weights} name.
  \item \strong{pval.method.coord}: the same as \code{pval.coord} but for displaying
@@ -384,6 +436,15 @@ The plot can be easily customized using additional arguments to be
 }
 
 \examples{
+
+#\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%
+# A single composable ggplot: output = "ggplot"
+#\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%
+require("survival")
+fit <- survfit(Surv(time, status) ~ sex, data = lung)
+p <- ggsurvplot(fit, data = lung, conf.int = TRUE, output = "ggplot")
+# p is a plain ggplot -- add your own layers, save it, facet it
+p + geom_hline(yintercept = 0.5, linetype = "dashed")
 
 #\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%
 # Example 1: Survival curves with two groups
