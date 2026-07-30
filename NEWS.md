@@ -4,6 +4,37 @@
 
 - `ggsurvplot()` now accepts `plotmath` expressions in `legend.labs` (e.g. `legend.labs = c(expression(beta[1]), expression(x^2))`), rendering superscripts, subscripts and Greek letters in the legend and the number-at-risk table while leaving the palette unchanged (#350). A plain character `legend.labs` behaves exactly as before.
 
+- `ggsurvparametric()` draws the fitted curve for every group when the right-hand
+  side carries a transform such as `~ factor(sex)`, and when several grouping
+  variables give labels of differing width. Both cases could leave curves out of
+  the plot -- all of them in the first case -- while the legend still showed the
+  distribution's key. A grouping term whose value depends on the other
+  observations (`mean()`, `cut()`) is now refused rather than risking a curve
+  drawn from another group's parameters.
+
+- `ggforest()` draws a Cox model containing a `pspline()` term alongside another
+  covariate correctly again. Such a term has more model coefficients than the
+  summary has rows, which left the plot with a block of blank "reference" rows and
+  dropped the fitted level of every variable after it, so a factor could show all
+  of its levels as the reference and its hazard ratio under a row of its own. In a
+  larger model the same term instead drew every other covariate a second time. (A
+  model of `pspline()` terms only still cannot be drawn: every one of its rows has
+  an undefined confidence limit, so there is no axis to draw.)
+
+- `ggforest()` no longer draws a namespace-qualified term such as
+  `splines::ns(age, 3)` twice. The `::` was read as the `:` that separates
+  interacting variables, so the term was processed a second time as an
+  interaction.
+
+- `ggcoxnph()`, `ggforest_models()` and `ggforest_subgroup()` name their
+  confidence-level argument `conf.level`, and reject a value outside (0, 1).
+  Across the package `conf.int` now consistently means "draw the confidence band"
+  and `conf.level` means "at what level".
+
+- `ggforest_subgroup()`'s hazard-ratio column header states the confidence level
+  actually used; it read "HR (95% CI)" whatever `conf.level` was set to, while the
+  intervals beneath it and the axis title both followed the requested level.
+
 - New `ggforest_models()` draws a forest plot comparing one covariate's hazard ratio across several Cox models -- one row per model -- for the crude-versus-adjusted (or naive-versus-time-varying) comparison. The hazard ratio, CI and p-value are read from each model (robust variance when present); a model missing the term is dropped with a warning, and a very wide interval is clamped to a robust axis window with an arrow (the full interval stays in the table) so one model cannot crush the shared scale. It is the model-wise sibling of `ggforest()` and `ggforest_subgroup()`.
 
 - `ggsurvplot_facet()` gains `pval.stratified = TRUE`, showing a single pooled stratified log-rank p-value -- `survdiff(Surv(time, status) ~ group + strata(facet.by))`, the group effect adjusting for the faceting variable -- as a figure-level subtitle. This is the statistic the whole figure illustrates: the per-panel p-values are within-facet, and several may be non-significant even when the pooled effect is strong. It is independent of `pval` (they combine). Only the log-rank / Peto (`rho`) family is used; the pooled test assumes a consistent group effect across strata.
@@ -22,14 +53,28 @@
   (guarantee-time) bias when groups are defined by a post-baseline status. A subject
   whose event falls exactly on `L` is excluded so the re-origined curve correctly
   starts at S = 1, and any requested log-rank p-value or risk table is computed on
-  the landmark cohort.
+  the landmark cohort. The landmark fit keeps the grouping term as written, so a
+  transformed right-hand side such as `~ (age > 60)` gives its two strata, and the
+  re-origined time and status are stored in columns that cannot collide with a
+  column of the same name in your data.
 
 - New `ggmilestone()` annotates milestone (fixed-time) survival: `S(t)` at one or
   more clinical timepoints with its confidence interval and, for a two-arm
   comparison, the between-arm difference with confidence interval and p-value
   (three or more arms via `ref.group`). A milestone beyond an arm's follow-up is
   returned as `NA` with a warning rather than silently dropped, and the full
-  milestone table is attached as `attr(x$plot, "milestone.table")`.
+  milestone table is attached as `attr(x$plot, "milestone.table")`, keyed by a
+  `strata` column as in `surv_median()` and `surv_summary()`. For two arms the
+  difference is the second arm minus the first, matching `ggrmst_difference()`, and
+  every difference row is labelled with its contrast. Arms are read from the fit's
+  own strata, so the labels and their order match `names(fit$strata)` and the plotted
+  curves.
+
+- `ggrmst()`, `ggrmst_difference()`, `ggmilestone()`, `gglandmark()` and
+  `surv_median_followup()` refuse a weighted `survfit()` with a clear message. These
+  summaries read the risk and event counts off the curve, and the confidence-interval
+  convention for weighted data (case weights vs sampling weights) is not determined by
+  the fit, so an interval reported for one could not be relied on.
 
 - New `surv_adtte()` prepares a CDISC ADaM time-to-event dataset (ADTTE) for
   analysis. ADTTE codes the censoring flag `CNSR` as 0 = event and >= 1 = censored
@@ -107,7 +152,8 @@
   reverse Kaplan-Meier method (Schemper & Smith, 1996) -- the roles of the event and
   censoring indicators are swapped and the median of the resulting curve is reported,
   per group. This is the follow-up counterpart of `surv_median()` (median survival),
-  a number routinely reported in clinical publications.
+  a number routinely reported in clinical publications. The confidence level is set
+  by `conf.level`, defaulting to the level the fit was built with.
 - New `ggrmst()` and `ggrmst_difference()` for restricted mean survival time (RMST) --
   the area under the Kaplan-Meier curve up to a truncation time `tau`, an absolute
   measure (in time units) that stays interpretable under non-proportional hazards.
@@ -117,9 +163,15 @@
   interval and p-value;
   for three or more groups the area under each curve is shaded, per panel.
   `ggrmst_difference()` returns a tidy table of per-group RMST (with SE and CI) and the
-  RMST difference. The estimate is computed internally from the Kaplan-Meier curve (no
-  new run-time dependency; matches `survRM2::rmst2()`), and `tau` defaults to the
-  largest time at which every group's curve is defined. See Royston & Parmar (2013).
+  RMST difference, keyed by a `strata` column as in `surv_median()` and
+  `surv_summary()`. The estimate is computed internally from the Kaplan-Meier curve and
+  matches `survRM2::rmst2()`; `tau` defaults to the largest time at which every group's
+  curve is defined. See Royston & Parmar (2013).
+  The confidence level is set by `conf.level`, as in `ggmilestone()`; `ggrmst()`
+  additionally takes `conf.int` with its package-wide meaning, drawing the
+  confidence band around the curves. Groups are read from the fit's own strata, so
+  the labels and their order match `names(fit$strata)` and the plotted curves, and a
+  transformed right-hand side such as `~ (age > 60)` is honoured as written.
 - `ggsurvplot()` gains an `output` argument. The default `output = "classic"` returns
   the usual compound `ggsurvplot` object (unchanged). `output = "ggplot"` instead
   returns a single survival-curve `ggplot` -- one object that composes normally with

@@ -36,6 +36,16 @@ NULL
 #' observation is censored limits \code{tau} to that time. A \code{tau} beyond that
 #' admissible range is an error.
 #'
+#' Groups are taken from the fit's own strata, so the labels and their order match
+#' \code{names(fit$strata)} and the curves drawn by \code{\link{ggsurvplot}()}, and a
+#' transformed right-hand side such as \code{~ (age > 60)} is honoured as written.
+#' (An ungrouped \code{~ 1} fit has no strata and is reported as a single
+#' \code{"All"} group. The grouping is rebuilt from \code{data}, so a fit created
+#' with \code{survfit(..., subset =)} should be passed the same subset of rows.)
+#' A weighted \code{survfit()} is refused: the confidence-interval convention for
+#' weighted data is ambiguous, so reporting an interval for it would overstate what
+#' the estimate supports.
+#'
 #' @param fit a survfit object (\code{survival::survfit()} or survminer's
 #'   \code{\link{surv_fit}()}).
 #' @param data the data frame used to fit the survival curves. If not supplied it
@@ -43,17 +53,32 @@ NULL
 #' @param tau numeric truncation time. Default \code{NULL} uses the largest time at
 #'   which all groups' curves are defined (see Details). An out-of-range value is an
 #'   error.
-#' @param conf.int the confidence level for the intervals. Default 0.95.
+#' @param conf.level the confidence level for the RMST intervals, a single number in
+#'   (0, 1). Default 0.95. (\code{ggrmst_difference()} returns a table, so this is
+#'   its only confidence argument.)
+#' @param conf.int logical; draw the confidence band around the survival curves,
+#'   as in \code{\link{ggmilestone}()} and \code{\link{gglandmark}()}. Default
+#'   \code{FALSE}. \code{ggrmst()} only. The band is drawn at the confidence level
+#'   \code{fit} was built with; \code{conf.level} sets the level of the RMST
+#'   interval, not of the band.
 #' @param ref.group for three or more groups, the reference group the RMST
-#'   differences are taken against (a group label). Default \code{NULL} reports only
+#'   differences are taken against, given in the fit's own label form (e.g.
+#'   \code{"sex=1"}; the error message lists the valid values). Default \code{NULL} reports only
 #'   the per-group RMST (no differences). Ignored for one or two groups.
 #' @param palette,ggtheme,... passed to \code{\link{ggsurvplot}()} for the underlying
 #'   curves.
 #' @return \code{ggrmst_difference()} returns a data.frame with one row per group
-#'   (\code{group}, \code{rmst}, \code{se}, \code{lower}, \code{upper}, \code{tau})
+#'   (\code{strata}, \code{rmst}, \code{se}, \code{lower}, \code{upper}, \code{tau})
 #'   and, when a two-group (or \code{ref.group}) difference is defined, additional
 #'   \code{"... - ..."} rows carrying \code{rmst} (the difference), \code{se},
-#'   \code{lower}, \code{upper} and \code{p.value}. \code{ggrmst()} returns a ggplot.
+#'   \code{lower}, \code{upper} and \code{p.value}. The \code{strata} column holds
+#'   the fit's own labels, as \code{\link{surv_median}()} and
+#'   \code{\link{surv_summary}()} do; a difference row is labelled with its contrast.
+#'   Only a difference row carries a \code{p.value}; the per-group rows have
+#'   \code{NA}. A comparison whose estimated variance is zero yields \code{p = 0}
+#'   for a non-zero difference and \code{NaN} for a zero one; treat either as
+#'   uninformative rather than significant.
+#'   \code{ggrmst()} returns a ggplot.
 #' @references
 #' Royston P, Parmar MKB (2013). Restricted mean survival time: an alternative to
 #' the hazard ratio for the design and analysis of randomized trials with a
@@ -66,11 +91,14 @@ NULL
 #'
 #' @describeIn ggrmst_difference a tidy table of per-group RMST and the difference.
 #' @export
-ggrmst_difference <- function(fit, data = NULL, tau = NULL, conf.int = 0.95,
+ggrmst_difference <- function(fit, data = NULL, tau = NULL, conf.level = 0.95,
                               ref.group = NULL) {
-  ext <- .rmst_extract(fit, data)
+  if (!is.numeric(conf.level) || length(conf.level) != 1L || is.na(conf.level) ||
+      conf.level <= 0 || conf.level >= 1)
+    stop("`conf.level` must be a single number in (0, 1).", call. = FALSE)
+  ext <- .rmst_extract(fit, data, fn = "ggrmst_difference")
   tau <- .rmst_resolve_tau(ext$time, ext$status, ext$group, tau)
-  alpha <- 1 - conf.int
+  alpha <- 1 - conf.level
   glevels <- levels(ext$group)
 
   per <- lapply(glevels, function(g) {
@@ -81,7 +109,7 @@ ggrmst_difference <- function(fit, data = NULL, tau = NULL, conf.int = 0.95,
   z <- stats::qnorm(1 - alpha / 2)
 
   out <- data.frame(
-    group = glevels,
+    strata = glevels,
     rmst  = vapply(per, function(x) x[["rmst"]], numeric(1)),
     se    = vapply(per, function(x) x[["se"]],  numeric(1)),
     lower = vapply(per, function(x) x[["lower"]], numeric(1)),
@@ -96,7 +124,7 @@ ggrmst_difference <- function(fit, data = NULL, tau = NULL, conf.int = 0.95,
     diffs <- list(c(glevels[2], glevels[1]))
   } else if (length(glevels) >= 3L && !is.null(ref.group)) {
     if (!ref.group %in% glevels)
-      stop("`ref.group` must be one of the group levels: ",
+      stop("`ref.group` must be one of the strata labels: ",
            paste(glevels, collapse = ", "), call. = FALSE)
     others <- setdiff(glevels, ref.group)
     diffs <- lapply(others, function(g) c(g, ref.group))
@@ -107,7 +135,7 @@ ggrmst_difference <- function(fit, data = NULL, tau = NULL, conf.int = 0.95,
       a <- per[[pr[1]]]; b <- per[[pr[2]]]
       d  <- a[["rmst"]] - b[["rmst"]]
       sd <- sqrt(a[["var"]] + b[["var"]])
-      data.frame(group = paste(pr[1], "-", pr[2]),
+      data.frame(strata = paste(pr[1], "-", pr[2]),
                  rmst = d, se = sd, lower = d - z * sd, upper = d + z * sd,
                  tau = tau, p.value = 2 * stats::pnorm(-abs(d / sd)),
                  row.names = NULL, stringsAsFactors = FALSE)
@@ -121,16 +149,31 @@ ggrmst_difference <- function(fit, data = NULL, tau = NULL, conf.int = 0.95,
 
 #' @describeIn ggrmst_difference the shaded Kaplan-Meier RMST plot.
 #' @export
-ggrmst <- function(fit, data = NULL, tau = NULL, conf.int = 0.95,
-                   palette = NULL, ggtheme = theme_survminer(), ...) {
+ggrmst <- function(fit, data = NULL, tau = NULL, conf.level = 0.95,
+                   palette = NULL, ggtheme = theme_survminer(), ...,
+                   conf.int = FALSE) {
+  # conf.int is the band flag, as everywhere else in survminer. Catch the stale
+  # numeric spelling rather than let ggsurvplot() read 0.9 as "TRUE" while the
+  # RMST interval silently stays at conf.level.
+  if (!is.logical(conf.int) || length(conf.int) != 1L || is.na(conf.int))
+    stop("`conf.int` must be TRUE or FALSE (it draws the confidence band around ",
+         "the curves). Use `conf.level` to set the confidence level of the RMST ",
+         "interval.", call. = FALSE)
   ext <- .rmst_extract(fit, data)
   tau <- .rmst_resolve_tau(ext$time, ext$status, ext$group, tau)
   glevels <- levels(ext$group)
-  tab <- ggrmst_difference(fit, data = ext$data, tau = tau, conf.int = conf.int)
+  tab <- ggrmst_difference(fit, data = ext$data, tau = tau, conf.level = conf.level)
 
   # Bare, composable survival-curve ggplot (output = "ggplot"). No table -- RMST is a single plot.
   p <- ggsurvplot(fit, data = ext$data, palette = palette, ggtheme = ggtheme,
-                  output = "ggplot", ...)
+                  output = "ggplot", conf.int = conf.int, ...)
+
+  # The plot's own strata levels, in the same order as glevels (ggsurvplot may
+  # rename them via legend.labs). Used for every label we draw, so the annotation
+  # never names an arm the legend does not show.
+  plot.strata <- levels(p$data$strata)
+  remap <- if (length(plot.strata) == length(glevels))
+    stats::setNames(plot.strata, glevels) else stats::setNames(glevels, glevels)
 
   time <- surv <- NULL
   if (length(glevels) == 2L) {
@@ -141,21 +184,22 @@ ggrmst <- function(fit, data = NULL, tau = NULL, conf.int = 0.95,
       ggplot2::geom_ribbon(data = band,
                            ggplot2::aes(x = time, ymin = ymin, ymax = ymax),
                            inherit.aes = FALSE, fill = "grey50", alpha = 0.3)
-    dr <- tab[grepl(" - ", tab$group), ]
-    lab <- sprintf("Delta RMST = %.1f  (%.0f%% CI %.1f to %.1f)\np = %s",
-                   dr$rmst, conf.int * 100, dr$lower, dr$upper,
+    # The difference rows are the ones appended after the per-group block; select
+    # them by position, never by matching " - " in the label, since a group label
+    # may itself contain " - ".
+    dr <- tab[nrow(tab), , drop = FALSE]
+    contrast <- paste(remap[[glevels[2]]], "-", remap[[glevels[1]]])
+    lab <- sprintf("Delta RMST (%s) = %.1f  (%.0f%% CI %.1f to %.1f)\np = %s",
+                   contrast, dr$rmst, conf.level * 100, dr$lower, dr$upper,
                    format.pval(dr$p.value, digits = 2, eps = 1e-4))
     p <- p + ggplot2::labs(subtitle = lab)
   } else {
     # One or 3+ groups: shade the area under each curve up to tau (faceted for 3+).
     # Relabel the area's group to the plot's own strata levels (same order) so a
-    # facet by strata matches the curves (ggsurvplot may rename via legend.labs).
+    # facet by strata matches the curves.
     areas <- .rmst_under_band(ext, tau)
-    plot.strata <- levels(p$data$strata)
-    if (length(plot.strata) == length(glevels)) {
-      remap <- stats::setNames(plot.strata, glevels)
+    if (length(plot.strata) == length(glevels))
       areas$strata <- factor(remap[areas$strata], levels = plot.strata)
-    }
     p <- p +
       ggplot2::geom_ribbon(data = areas,
                            ggplot2::aes(x = time, ymin = 0, ymax = surv,
@@ -183,7 +227,11 @@ ggrmst <- function(fit, data = NULL, tau = NULL, conf.int = 0.95,
   keep <- tt <= tau
   tt <- tt[keep]; Y <- Y[keep]; d <- d[keep]; S <- S[keep]
   gt <- c(0, tt, tau)
-  gS <- c(1, S, S[length(S)])         # step value on each left segment; flat to tau
+  # Step value on each left segment; flat to tau. When no observation falls at or
+  # before tau, S is empty and S[length(S)] is numeric(0) -- which would collapse gS
+  # to length 1 and make the sum below 0 instead of tau. The curve is identically 1
+  # on [0, tau] in that case, so the flat-forward value is 1.
+  gS <- c(1, S, if (length(S)) S[length(S)] else 1)
   w  <- diff(gt)
   Sv <- gS[-length(gS)]
   rmst <- sum(Sv * w)
@@ -220,9 +268,10 @@ ggrmst <- function(fit, data = NULL, tau = NULL, conf.int = 0.95,
 }
 
 # Extract raw time, status and the grouping (combined strata) from fit + data.
-.rmst_extract <- function(fit, data) {
+.rmst_extract <- function(fit, data, fn = "ggrmst") {
   if (!.is_survfit(fit))
     stop("`fit` must be a survfit object.", call. = FALSE)
+  .stop_if_weighted(fit, fn)
   data <- as.data.frame(.get_data(fit, data))
   f <- stats::formula(fit)
   resp <- eval(f[[2]], envir = data)
@@ -231,14 +280,21 @@ ggrmst <- function(fit, data = NULL, tau = NULL, conf.int = 0.95,
   # a meaningless RMST from the collapsed status codes; left-censored likewise.
   if (!survival::is.Surv(resp) || ncol(resp) != 2L ||
       !identical(attr(resp, "type"), "right"))
-    stop("ggrmst() supports right-censored `Surv(time, status)` data only.",
+    stop(fn, "() supports right-censored `Surv(time, status)` data only.",
          call. = FALSE)
   time <- as.numeric(resp[, 1]); status <- as.numeric(resp[, 2])
-  rhs <- all.vars(f[[3]])
-  if (length(rhs) == 0L || identical(rhs, "1"))
-    group <- factor(rep("All", length(time)))
-  else
-    group <- interaction(data[rhs], sep = ", ", drop = TRUE)
+  # Grouping straight from the fit's own strata convention: the levels reproduce
+  # names(fit$strata) in survfit's order, so the label remap onto the plotted
+  # curves is correct by construction and a transformed right-hand side such as
+  # `~ (age > 60)` groups into its two strata rather than one per distinct value.
+  group <- .strata_group_from_formula(f, data)
+  # survfit() stores no strata when the formula collapses to a single group (e.g.
+  # a factor with one used level); the package calls that "All" everywhere else.
+  # Rename the LEVELS only -- replacing the vector would overwrite the NAs that
+  # reproduce survfit()'s na.omit, and the estimates would then be computed on
+  # rows the fit excluded.
+  if (is.null(fit$strata) && nlevels(group) > 0L)
+    levels(group) <- rep("All", nlevels(group))
   ok <- stats::complete.cases(time, status) & !is.na(group)
   list(time = time[ok], status = status[ok], group = droplevels(group[ok]),
        data = data)
